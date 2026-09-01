@@ -88,7 +88,7 @@ BANQUE_SECTEURS = {
 
 # --- EN-TÊTE PRINCIPAL ---
 st.title("⚓ Pêche QC Pro")
-st.caption("Plateforme intelligente de cartographie hydrographique & analyse de secteurs")
+st.caption("Cartographie hydrographique avec données de sondage & relief")
 
 # --- BARRE LATÉRALE ---
 st.sidebar.header("📍 Exploration & Conditions")
@@ -112,51 +112,51 @@ etat_maree = st.sidebar.selectbox("Phase de Marée :", ["Montant (Bas vers Haut)
 tab_carte, tab_analyse, tab_guide = st.tabs(["🗺️ Cartographie Hydrographique", "🔍 Fiche du Secteur", "🎣 Guide des Espèces"])
 
 with tab_carte:
-    st.markdown(f"### 🌊 Sondes & Relief Hydrographique — {secteur_data['nom']}")
-    st.info("💡 **Bascule de cartes :** Utilisez le menu en haut à droite sur la carte pour basculer entre la carte marine NOAA (chiffres de profondeur), le relief bathymétrique ESRI et le satellite.")
+    st.markdown(f"### 🌊 Fonds & Sondes — {secteur_data['nom']}")
+    st.info("💡 **Calques de carte :** Cliquez sur le sélecteur en haut à droite de la carte pour afficher les **Sondes NOAA (Chiffres de profondeur)** ou le **Relief des Fonds Marins (ESRI)**.")
 
     def generer_carte(lat, lon, zoom):
         m = folium.Map(location=[lat, lon], zoom_start=zoom, control_scale=True, tiles=None)
         
-        # 1. Carte Marine Officielle NOAA (Chiffres de sonde + isothermes)
+        # 1. Sondes de profondeur et isothermes (NOAA / Hydrographie)
         folium.TileLayer(
             tiles='https://tileservice.charts.noaa.gov/tiles/50000_1/{z}/{x}/{y}.png',
-            attr='NOAA Office of Coast Survey',
-            name='Carte Marine NOAA (Sondes & Balises)',
+            attr='NOAA Charting Services',
+            name='Sondes & Profondeurs (NOAA)',
             overlay=False,
             max_zoom=18
         ).add_to(m)
 
-        # 2. Carte Bathymétrique Mondiale (Relief sous-marin coloré)
+        # 2. Topographie sous-marine colorée (GEBCO / Esri Ocean)
         folium.TileLayer(
             tiles='https://server.arcgisonline.com/ArcGIS/rest/services/Ocean/World_Ocean_Base/MapServer/tile/{z}/{y}/{x}',
             attr='Esri, GEBCO, NOAA',
-            name='Relief des Fonds Marins (Esri Ocean)',
+            name='Relief des Fonds Marins (Couleurs)',
             overlay=False,
             max_zoom=16
         ).add_to(m)
 
-        # 3. Vue Satellite HD (Pour voir la clarté de l'eau et les structures)
+        # 3. Vue Satellite HD (Pour voir les structures d'eau claire et battures)
         folium.TileLayer(
             tiles='https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
             attr='Esri Satellite',
-            name='Vue Satellite HD',
+            name='Satellite HD',
             overlay=False
         ).add_to(m)
 
-        # 4. Calque de repères maritimes (Bouées, feux)
+        # 4. Calque de repères maritimes (Bouées et balises)
         folium.TileLayer(
             tiles='https://tiles.openseamap.org/seamark/{z}/{x}/{y}.png',
             attr='OpenSeaMap',
-            name='Repères de navigation OpenSeaMap',
+            name='Balises & Bouées',
             overlay=True,
             opacity=0.8
         ).add_to(m)
 
-        # Contrôle des calques pour choisir la carte
+        # Contrôle des couches
         folium.LayerControl(position='topright').add_to(m)
 
-        # Marqueur rouge pour marquer la zone de pêche
+        # Marqueur rouge pour localiser la fosse ou la structure
         folium.Marker(
             [lat, lon],
             popup=f"Secteur recommandé: {lat}, {lon}",
