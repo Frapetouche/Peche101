@@ -2,175 +2,192 @@ import streamlit as st
 import folium
 from streamlit_folium import st_folium
 
-# ==========================================
-# 1. CONFIGURATION PLEINE PAGE
-# ==========================================
+# =====================================================================
+# CONFIGURATION DE LA FENÊTRE
+# =====================================================================
 st.set_page_config(
-    page_title="Pêche QC — Carte Bathymétrique",
-    page_icon="⚓",
+    page_title="Pro-Bathymétrie & Analyse Lacustre",
+    page_icon="🗺️",
     layout="wide",
     initial_sidebar_state="expanded"
 )
 
-# Optimisation de l'espace d'affichage
 st.markdown("""
     <style>
-    .block-container {
-        padding-top: 1rem;
-        padding-bottom: 0rem;
-        padding-left: 1rem;
-        padding-right: 1rem;
-    }
-    .stButton>button {
-        width: 100%;
-        background-color: #0284c7;
-        color: white;
+    .main-header {
+        font-size: 24px;
         font-weight: bold;
+        color: #0284c7;
+        margin-bottom: 10px;
+    }
+    .expert-card {
+        background-color: #0f172a;
+        color: #f1f5f9;
+        padding: 20px;
+        border-radius: 12px;
+        border-left: 6px solid #0ea5e9;
+        margin-bottom: 20px;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+    }
+    .bathymetrie-box {
+        background-color: #1e293b;
+        padding: 15px;
         border-radius: 8px;
+        border: 1px solid #334155;
+        margin-bottom: 15px;
     }
     </style>
 """, unsafe_allow_html=True)
 
-# ==========================================
-# 2. BASE DE DONNÉES DES SECTEURS ET POINTS GPS
-# ==========================================
-BANQUE_SECTEURS = {
-    "saguenay_terres_rompues": {
-        "nom": "Terres-Rompues (Fjord du Saguenay)",
-        "coords_centre": [48.45520, -71.05210],
-        "zoom": 14,
-        "debarcadere": {
-            "nom": "Rampe des Terres-Rompues",
-            "coords": [48.45831, -71.05582],
-            "info": "Gratuit / Parking 25 remorques"
-        },
-        "spots_cles": [
-            {"nom": "Cassure Principale (8m à 38m)", "coords": [48.45520, -71.05210]},
-            {"nom": "Pointe des Courants", "coords": [48.45280, -71.04550]}
-        ]
+# =====================================================================
+# BASE DE DONNÉES HYDROGRAPHIQUE AVEC PROFONDEURS ET FORMES DE FONDS
+# =====================================================================
+BASE_LACS_PRO = {
+    "lac_saint_jean_centrale": {
+        "nom": "Lac Saint-Jean (Secteur Central / SabLIÈRES)",
+        "coords_centre": [48.58200, -71.95500],
+        "zoom": 12,
+        "profondeur_max": "63 mètres (Bassin semi-ouvert)",
+        "profil_bathymetrique": "Immenses hauts-fonds sablonneux alternant avec des cuvettes de 10 à 25m. Présence de pointes rocheuses submergées.",
+        "zones_cles": [
+            {"nom": "Haut-fond de sable (3 à 5m) - Station du Doré", "coords": [48.57500, -71.94000], "type": "Haut-fond"},
+            {"nom": "Cassure brusque de 8m à 22m", "coords": [48.59000, -71.97000], "type": "Cassure / Talus"}
+        ],
+        "conseil_sonar": "Cherchez les transitions nettes sur le SonarChart entre les plateaux de 4m et la pente abrupte du chenal."
     },
-    "anse_saint_jean": {
-        "nom": "L'Anse-Saint-Jean (Fjord Profond)",
-        "coords_centre": [48.24650, -70.18920],
+    "fjord_saguenay_baie_eternite": {
+        "nom": "Fjord du Saguenay — Baie Éternité",
+        "coords_centre": [48.29310, -70.30820],
         "zoom": 13,
-        "debarcadere": {
-            "nom": "Marina de L'Anse-Saint-Jean",
-            "coords": [48.24388, -70.19830],
-            "info": "Payant / Tous services"
-        },
-        "spots_cles": [
-            {"nom": "Marche des Sébastes (85m)", "coords": [48.24810, -70.18500]}
-        ]
+        "profondeur_max": "Plus de 250 mètres (Fjord encaissé)",
+        "profil_bathymetrique": "Tombants verticaux immédiats. Le rebord (la 'marche') se situe souvent entre 15m et 45m avant la grande noirceur des grands fonds.",
+        "zones_cles": [
+            {"nom": "Le Seuil de la Baie (18m - 30m)", "coords": [48.29800, -70.31500], "type": "Seuil rocheux"},
+            {"nom": "Tombant Nord (Sébaste / Omble)", "coords": [48.29000, -70.30000], "type": "Paroi verticale"}
+        ],
+        "conseil_sonar": "Le SonarChart est critique ici pour repérer les gradins rocheux sous-marins invisibles depuis la surface."
     },
-    "fleuve_levis": {
-        "nom": "Québec / Lévis (Fosse Citadelle)",
-        "coords_centre": [46.81250, -71.20520],
-        "zoom": 14,
-        "debarcadere": {
-            "nom": "Rampe du Parc Maritime de Lévis",
-            "coords": [46.81520, -71.19880],
-            "info": "Municipal / Courant fort"
-        },
-        "spots_cles": [
-            {"nom": "Ressort de la Citadelle", "coords": [46.81180, -71.20850]}
-        ]
-    },
-    "lac_saint_pierre": {
-        "nom": "Archipel du Lac Saint-Pierre",
-        "coords_centre": [46.19820, -72.92150],
-        "zoom": 13,
-        "debarcadere": {
-            "nom": "Mise à l'eau de la Sablière",
-            "coords": [46.20250, -72.93210],
-            "info": "Payant / Qualité supérieure"
-        },
-        "spots_cles": [
-            {"nom": "Entrée du Chenal des Corbeaux", "coords": [46.19500, -72.91800]}
-        ]
+    "lac_st_pierre_chenal": {
+        "nom": "Lac Saint-Pierre (Archipel & Chenal)",
+        "coords_centre": [46.23000, -72.85000],
+        "zoom": 12,
+        "profondeur_max": "3 à 10 mètres (Lac fluviatile très peu profond)",
+        "profil_bathymetrique": "Labyrinthe d'herbiers, de hernies de glaise et de chenaux creusés par le passage des navires.",
+        "zones_cles": [
+            {"nom": "Sortie du Chenal Principal (6m)", "coords": [46.22000, -72.87000], "type": "Talus de chenal"},
+            {"nom": "Plateau d'herbiers submergés", "coords": [46.24500, -72.83000], "type": "Herbier dense"}
+        ],
+        "conseil_sonar": "Attention aux hauts-fonds cachés de moins d'un mètre. Le SonarChart évite l'échouage sur les bancs de glaise."
     }
 }
 
-# ==========================================
-# 3. BARRE LATÉRALE ET OPTIONS
-# ==========================================
-st.sidebar.header("🗺️ Navigation & Bathymétrie")
-
-secteur_id = st.sidebar.selectbox(
-    "📍 Choisir le secteur :",
-    options=list(BANQUE_SECTEURS.keys()),
-    format_func=lambda x: BANQUE_SECTEURS[x]["nom"]
+# =====================================================================
+# INTERFACE UTILISATEUR (SIDEBAR)
+# =====================================================================
+st.sidebar.markdown("### 🎛️ Paramètres d'Analyse Bathymétrique")
+choix_lac = st.sidebar.selectbox(
+    "Sélectionnez le plan d'eau à analyser :",
+    options=list(BASE_LACS_PRO.keys()),
+    format_func=lambda x: BASE_LACS_PRO[x]["nom"]
 )
 
-secteur = BANQUE_SECTEURS[secteur_id]
-
-# Lien vers la bathymétrie communautaire Navionics pré-centrée
-lat, lon = secteur["coords_centre"]
-zoom = secteur["zoom"]
-navionics_url = f"https://webapp.navionics.com/?lang=en#boating@11@{lat},{lon}"
+lac_actif = BASE_LACS_PRO[choix_lac]
 
 st.sidebar.markdown("---")
-st.sidebar.subheader("🌊 Bathymétrie Haute Définition")
-st.sidebar.write("Pour visualiser les lignes de profondeur au pied près (SonarChart) :")
-st.sidebar.markdown(f'[![Ouvrir Navionics HD](https://img.shields.io/badge/Navionics-SonarChart_HD-0284c7?style=for-the-badge)]({navionics_url})')
+st.sidebar.markdown("### 🔍 Cartographie HD & SonarChart")
+lat_l, lon_l = lac_actif["coords_centre"]
+# Lien direct vers Navionics SonarChart centré sur les coordonnées exactes du lac
+url_navionics_hd = f"https://webapp.navionics.com/?lang=en#boating@13@{lat_l},{lon_l}"
+st.sidebar.markdown(f"""
+[![Ouvrir SonarChart HD](https://img.shields.io/badge/Navionics-Ouvrir_SonarChart_HD-0284c7?style=for-the-badge&logo=googlemaps)]({url_navionics_hd})
+""")
+st.sidebar.caption("💡 *Astuce Pro :* Gardez la carte SonarChart ouverte sur un écran secondaire ou mobile pour valider les isobathes exactes de chaque pied/mètre.")
 
-# ==========================================
-# 4. GÉNÉRATION DE LA CARTE BATHYMÉTRIQUE
-# ==========================================
-m = folium.Map(location=secteur["coords_centre"], zoom_start=secteur["zoom"], control_scale=True)
+# =====================================================================
+# PANNEAU PRINCIPAL D'ANALYSE
+# =====================================================================
+st.markdown(f'<div class="main-header">📊 Analyse Morphologique & Bathymétrique : {lac_actif["nom"]}</div>', unsafe_allow_html=True)
 
-# Couche 1: Esri Ocean Bathymetry (Fonds marins & reliefs)
-folium.TileLayer(
-    tiles='https://server.arcgisonline.com/ArcGIS/rest/services/Ocean/World_Ocean_Base/MapServer/tile/{z}/{y}/{x}',
-    attr='Esri Ocean Bathymetry',
-    name='🌊 Bathymétrie & Fonds (Esri)',
-    overlay=False
-).add_to(m)
+# Bloc de description des fonds
+st.markdown(f"""
+<div class="expert-card">
+    <h3>🌊 Caractéristiques du Fond & Profondeurs</h3>
+    <p><b>Profondeur Maximale du Secteur :</b> {lac_actif['profondeur_max']}</p>
+    <p><b>Profil du relief sous-marin :</b> {lac_actif['profil_bathymetrique']}</p>
+    <p><b>Conseil de lecture Sonar :</b> {lac_actif['conseil_sonar']}</p>
+</div>
+""", unsafe_allow_html=True)
 
-# Couche 2: OpenTopoMap (Reliefs topographiques)
-folium.TileLayer(
-    tiles='https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png',
-    attr='OpenTopoMap',
-    name='⛰️ Topographie',
-    overlay=False
-).add_to(m)
+# Section d'analyse des zones ciblées par le pro
+col_gauche, col_droite = st.columns([1.5, 1])
 
-# Couche 3: Esri Satellite
-folium.TileLayer(
-    tiles='https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
-    attr='Esri Satellite',
-    name='🛰️ Satellite HD',
-    overlay=False
-).add_to(m)
+with col_gauche:
+    st.markdown("### 🗺️ Repérage Géographique des Structures")
+    
+    # Création de la carte Folium orientée bathymétrie
+    m = folium.Map(
+        location=lac_actif["coords_centre"],
+        zoom_start=lac_actif["zoom"],
+        control_scale=True,
+        tiles=None
+    )
 
-# Superposition : OpenSeaMap (Balises et signaux marins)
-folium.TileLayer(
-    tiles='https://tiles.openseamap.org/seamark/{z}/{x}/{y}.png',
-    attr='OpenSeaMap',
-    name='🚨 Balises marines (OpenSeaMap)',
-    overlay=True,
-    opacity=0.85
-).add_to(m)
-
-# Ajout du repère de débarcadère (Ancre bleue)
-if "debarcadere" in secteur:
-    deb = secteur["debarcadere"]
-    folium.Marker(
-        deb["coords"],
-        popup=f"<b>⚓ {deb['nom']}</b><br>GPS: {deb['coords'][0]}, {deb['coords'][1]}<br>{deb['info']}",
-        tooltip=f"Débarcadère : {deb['nom']}",
-        icon=folium.Icon(color="blue", icon="anchor", prefix="fa")
+    # Couche de bathymétrie mondiale (Esri Ocean)
+    folium.TileLayer(
+        tiles='https://server.arcgisonline.com/ArcGIS/rest/services/Ocean/World_Ocean_Base/MapServer/tile/{z}/{y}/{x}',
+        attr='Esri Ocean Bathymetry',
+        name='🌊 Bathymétrie Générale (Esri)',
+        overlay=False
     ).add_to(m)
 
-# Ajout des fosses et structures de pêche (Poisson rouge)
-for spot in secteur.get("spots_cles", []):
-    folium.Marker(
-        spot["coords"],
-        popup=f"<b>🎯 {spot['nom']}</b><br>GPS: {spot['coords'][0]}, {spot['coords'][1]}",
-        tooltip=f"Structure : {spot['nom']}",
-        icon=folium.Icon(color="red", icon="fish", prefix="fa")
+    # Couche Satellite pour repérer les pointes de terre et baies
+    folium.TileLayer(
+        tiles='https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+        attr='Esri Satellite',
+        name='🛰️ Satellite HD',
+        overlay=False
     ).add_to(m)
 
-folium.LayerControl(position="topright").add_to(m)
+    # Couche OpenTopoMap pour les reliefs côtiers
+    folium.TileLayer(
+        tiles='https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png',
+        attr='OpenTopoMap',
+        name='⛰️ Topographie',
+        overlay=False
+    ).add_to(m)
 
-# Affichage de la carte
-st_folium(m, width="100%", height=780, returned_objects=[], key=f"map_{secteur_id}")
+    # Ajout des zones clés (structures du fond)
+    for zone in lac_actif["zones_cles"]:
+        folium.Marker(
+            location=zone["coords"],
+            popup=f"<b>Structure : {zone['nom']}</b><br>Type : {zone['type']}",
+            tooltip=zone["nom"],
+            icon=folium.Icon(color="orange", icon="binoculars", prefix="fa")
+        ).add_to(m)
+
+    folium.LayerControl(position="topright").add_to(m)
+    st_folium(m, width="1005", height=450, returned_objects=[], key="carte_bathymetrie_lac")
+
+with col_droite:
+    st.markdown("### 🎯 Points Stratégiques Identifiés")
+    for zone in lac_actif["zones_cles"]:
+        st.markdown(f"""
+        <div class="bathymetrie-box">
+            <b>📍 {zone['nom']}</b><br>
+            <span style="color: #38bdf8; font-size: 13px;">Type de structure : {zone['type']}</span><br>
+            <code style="font-size: 11px;">GPS: {zone['coords'][0]}, {zone['coords'][1]}</code>
+        </div>
+        """, unsafe_allow_html=True)
+
+# =====================================================================
+# RÈGLES DE JAUGEAGE D'UN LAC PAR UN PRO
+# =====================================================================
+st.markdown("---")
+st.markdown("### 🧠 Méthodologie Pro : Comment jauger un nouveau lac avec le SonarChart")
+st.markdown("""
+1. **Identifier les étranglements et les goulets :** Le poisson se déplace souvent là où l'eau est canalisée (accélération du courant, oxygénation).
+2. **Repérer les rebords de hauts-fonds isolés (*Mid-lake humps*) :** En plein milieu d'un lac, un monticule qui remonte de 15m à 4m attire systématiquement les prédateurs.
+3. **Analyser l'espacement des lignes isobathes :** 
+   * Des lignes **serrées** indiquent un mur ou un talus abrupt (idéal pour le poisson de roche et les pélagiques).
+   * Des lignes **espacées** indiquent un plateau progressif (favorable pour la traîne à plat et les herbiers).
+""")
