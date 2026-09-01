@@ -6,13 +6,13 @@ from streamlit_folium import st_folium
 # 1. CONFIGURATION PLEINE PAGE
 # ==========================================
 st.set_page_config(
-    page_title="Pêche QC — Carte",
+    page_title="Pêche QC — Carte Bathymétrique",
     page_icon="⚓",
     layout="wide",
     initial_sidebar_state="expanded"
 )
 
-# Style CSS pour maximiser la hauteur de la carte
+# Optimisation de l'espace d'affichage
 st.markdown("""
     <style>
     .block-container {
@@ -21,11 +21,18 @@ st.markdown("""
         padding-left: 1rem;
         padding-right: 1rem;
     }
+    .stButton>button {
+        width: 100%;
+        background-color: #0284c7;
+        color: white;
+        font-weight: bold;
+        border-radius: 8px;
+    }
     </style>
 """, unsafe_allow_html=True)
 
 # ==========================================
-# 2. BASE DE DONNÉES DES POINTS GPS
+# 2. BASE DE DONNÉES DES SECTEURS ET POINTS GPS
 # ==========================================
 BANQUE_SECTEURS = {
     "saguenay_terres_rompues": {
@@ -84,8 +91,10 @@ BANQUE_SECTEURS = {
 }
 
 # ==========================================
-# 3. SÉLECTION DU SECTEUR
+# 3. BARRE LATÉRALE ET OPTIONS
 # ==========================================
+st.sidebar.header("🗺️ Navigation & Bathymétrie")
+
 secteur_id = st.sidebar.selectbox(
     "📍 Choisir le secteur :",
     options=list(BANQUE_SECTEURS.keys()),
@@ -94,43 +103,55 @@ secteur_id = st.sidebar.selectbox(
 
 secteur = BANQUE_SECTEURS[secteur_id]
 
+# Lien vers la bathymétrie communautaire Navionics pré-centrée
+lat, lon = secteur["coords_centre"]
+zoom = secteur["zoom"]
+navionics_url = f"https://webapp.navionics.com/?lang=en#boating@11@{lat},{lon}"
+
+st.sidebar.markdown("---")
+st.sidebar.subheader("🌊 Bathymétrie Haute Définition")
+st.sidebar.write("Pour visualiser les lignes de profondeur au pied près (SonarChart) :")
+st.sidebar.markdown(f'[![Ouvrir Navionics HD](https://img.shields.io/badge/Navionics-SonarChart_HD-0284c7?style=for-the-badge)]({navionics_url})')
+
 # ==========================================
-# 4. GÉNÉRATION DE LA CARTE PLEINE PAGE
+# 4. GÉNÉRATION DE LA CARTE BATHYMÉTRIQUE
 # ==========================================
-# Initialisation centrée sur la zone sans y ajouter de marqueur générique
 m = folium.Map(location=secteur["coords_centre"], zoom_start=secteur["zoom"], control_scale=True)
 
-# Couches de fonds cartographiques
+# Couche 1: Esri Ocean Bathymetry (Fonds marins & reliefs)
 folium.TileLayer(
     tiles='https://server.arcgisonline.com/ArcGIS/rest/services/Ocean/World_Ocean_Base/MapServer/tile/{z}/{y}/{x}',
     attr='Esri Ocean Bathymetry',
-    name='Bathymétrie (Esri)',
+    name='🌊 Bathymétrie & Fonds (Esri)',
     overlay=False
 ).add_to(m)
 
+# Couche 2: OpenTopoMap (Reliefs topographiques)
 folium.TileLayer(
     tiles='https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png',
     attr='OpenTopoMap',
-    name='Topographie',
+    name='⛰️ Topographie',
     overlay=False
 ).add_to(m)
 
+# Couche 3: Esri Satellite
 folium.TileLayer(
     tiles='https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
     attr='Esri Satellite',
-    name='Satellite HD',
+    name='🛰️ Satellite HD',
     overlay=False
 ).add_to(m)
 
+# Superposition : OpenSeaMap (Balises et signaux marins)
 folium.TileLayer(
     tiles='https://tiles.openseamap.org/seamark/{z}/{x}/{y}.png',
     attr='OpenSeaMap',
-    name='Balises marines',
+    name='🚨 Balises marines (OpenSeaMap)',
     overlay=True,
     opacity=0.85
 ).add_to(m)
 
-# 1. Uniquement la mise à l'eau (Ancre bleue)
+# Ajout du repère de débarcadère (Ancre bleue)
 if "debarcadere" in secteur:
     deb = secteur["debarcadere"]
     folium.Marker(
@@ -140,7 +161,7 @@ if "debarcadere" in secteur:
         icon=folium.Icon(color="blue", icon="anchor", prefix="fa")
     ).add_to(m)
 
-# 2. Uniquement les structures de pêche (Poisson rouge)
+# Ajout des fosses et structures de pêche (Poisson rouge)
 for spot in secteur.get("spots_cles", []):
     folium.Marker(
         spot["coords"],
@@ -149,7 +170,6 @@ for spot in secteur.get("spots_cles", []):
         icon=folium.Icon(color="red", icon="fish", prefix="fa")
     ).add_to(m)
 
-# Contrôle des couches
 folium.LayerControl(position="topright").add_to(m)
 
 # Affichage de la carte
