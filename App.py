@@ -125,7 +125,7 @@ def calculer_indice(pression, tendance, maree):
 indice_activite = calculer_indice(pression_actuelle, tendance_pression, etat_maree)
 
 # --- ONGLETS ---
-tab_carte, tab_analyse, tab_guide = st.tabs(["🗺️ Carte SonarChart & Fonds", "🔍 Fiche & Photo du Secteur", "🎣 Guide des Espèces & Tactiques"])
+tab_carte, tab_analyse, tab_guide = st.tabs(["🗺️ Carte Bathymétrique & Fonds", "🔍 Fiche & Photo du Secteur", "🎣 Guide des Espèces & Tactiques"])
 
 with tab_carte:
     st.markdown(f"### 🌊 Cartographie Hydrographique — {secteur_data['nom']}")
@@ -139,22 +139,37 @@ with tab_carte:
     def generer_carte(lat, lon):
         m = folium.Map(location=[lat, lon], zoom_start=12, control_scale=True, tiles=None)
         
-        folium.TileLayer(
-            tiles='https://tiles.openseamap.org/seamark/{z}/{x}/{y}.png',
-            attr='OpenSeaMap Hydrographic',
-            name='Contours SonarChart',
-            overlay=False,
-            max_zoom=18
-        ).add_to(m)
-        
+        # 1. Carte Bathymétrique Mondiale Principale (GEBCO / NOAA Ocean Relief)
         folium.TileLayer(
             tiles='https://server.arcgisonline.com/ArcGIS/rest/services/Ocean/World_Ocean_Base/MapServer/tile/{z}/{y}/{x}',
-            attr='Esri Ocean Base',
-            name='Relief des fonds',
+            attr='Esri, GEBCO, NOAA, National Geographic',
+            name='Bathymétrie & Fonds Marins',
+            overlay=False,
+            max_zoom=16
+        ).add_to(m)
+        
+        # 2. Couche des repères, balises et annotations maritimes
+        folium.TileLayer(
+            tiles='https://server.arcgisonline.com/ArcGIS/rest/services/Ocean/World_Ocean_Reference/MapServer/tile/{z}/{y}/{x}',
+            attr='Esri Ocean Reference',
+            name='Repères Hydrographiques',
             overlay=True,
-            opacity=0.55
+            opacity=0.8
         ).add_to(m)
 
+        # 3. Couche optionnelle OpenSeaMap (Navigation)
+        folium.TileLayer(
+            tiles='https://tiles.openseamap.org/seamark/{z}/{x}/{y}.png',
+            attr='OpenSeaMap',
+            name='Balises de navigation',
+            overlay=True,
+            opacity=0.7
+        ).add_to(m)
+
+        # Controleur de calques pour basculer les couches sur la carte
+        folium.LayerControl().add_to(m)
+
+        # Marqueur dynamique
         folium.Marker(
             [lat, lon],
             popup=f"Secteur: {lat}, {lon}",
