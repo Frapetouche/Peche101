@@ -112,31 +112,31 @@ etat_maree = st.sidebar.selectbox("Phase de Marée :", ["Montant (Bas vers Haut)
 tab_carte, tab_analyse, tab_guide = st.tabs(["🗺️ Cartographie Hydrographique", "🔍 Fiche du Secteur", "🎣 Guide des Espèces"])
 
 with tab_carte:
-    st.markdown(f"### 🌊 Fonds & Sondes — {secteur_data['nom']}")
-    st.info("💡 **Calques de carte :** Cliquez sur le sélecteur en haut à droite de la carte pour afficher les **Sondes NOAA (Chiffres de profondeur)** ou le **Relief des Fonds Marins (ESRI)**.")
+    st.markdown(f"### 🌊 Fonds & Relatifs Hydrographiques — {secteur_data['nom']}")
+    st.info("💡 **Calques de carte :** La couche **Relief des Fonds Marins (Bathymétrie)** et la **Carte Topo QC** sont actives pour éviter l'écran gris.")
 
     def generer_carte(lat, lon, zoom):
         m = folium.Map(location=[lat, lon], zoom_start=zoom, control_scale=True, tiles=None)
-        
-        # 1. Sondes de profondeur et isothermes (NOAA / Hydrographie)
-        folium.TileLayer(
-            tiles='https://tileservice.charts.noaa.gov/tiles/50000_1/{z}/{x}/{y}.png',
-            attr='NOAA Charting Services',
-            name='Sondes & Profondeurs (NOAA)',
-            overlay=False,
-            max_zoom=18
-        ).add_to(m)
 
-        # 2. Topographie sous-marine colorée (GEBCO / Esri Ocean)
+        # 1. Relief des Fonds Marins & Bathymétrie (Esri Ocean Base) - Fonctionne partout au Québec
         folium.TileLayer(
             tiles='https://server.arcgisonline.com/ArcGIS/rest/services/Ocean/World_Ocean_Base/MapServer/tile/{z}/{y}/{x}',
             attr='Esri, GEBCO, NOAA',
-            name='Relief des Fonds Marins (Couleurs)',
+            name='Relief des Fonds Marins (Bathymétrie)',
             overlay=False,
             max_zoom=16
         ).add_to(m)
 
-        # 3. Vue Satellite HD (Pour voir les structures d'eau claire et battures)
+        # 2. Carte Topographique & Hydrographique Canadienne (Ressources Naturelles Canada / OpenTopo)
+        folium.TileLayer(
+            tiles='https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png',
+            attr='OpenTopoMap (Données hydrographiques & courbes de niveau)',
+            name='Carte Topo & Hydro QC (Courbes de niveau)',
+            overlay=False,
+            max_zoom=17
+        ).add_to(m)
+
+        # 3. Vue Satellite HD (Pour visualiser les battures et berges)
         folium.TileLayer(
             tiles='https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
             attr='Esri Satellite',
@@ -144,22 +144,22 @@ with tab_carte:
             overlay=False
         ).add_to(m)
 
-        # 4. Calque de repères maritimes (Bouées et balises)
+        # 4. Overlay Hydrographique / Repères de navigation OpenSeaMap
         folium.TileLayer(
             tiles='https://tiles.openseamap.org/seamark/{z}/{x}/{y}.png',
             attr='OpenSeaMap',
-            name='Balises & Bouées',
+            name='Balises & Bouées de navigation',
             overlay=True,
-            opacity=0.8
+            opacity=0.85
         ).add_to(m)
 
-        # Contrôle des couches
+        # Contrôle des calques
         folium.LayerControl(position='topright').add_to(m)
 
         # Marqueur rouge pour localiser la fosse ou la structure
         folium.Marker(
             [lat, lon],
-            popup=f"Secteur recommandé: {lat}, {lon}",
+            popup=f"Secteur sélectionné: {lat}, {lon}",
             icon=folium.Icon(color="red", icon="anchor", prefix="fa")
         ).add_to(m)
         
