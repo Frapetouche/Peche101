@@ -12,7 +12,7 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Masquer les marges inutiles pour agrandir la carte
+# Style CSS pour maximiser la hauteur de la carte
 st.markdown("""
     <style>
     .block-container {
@@ -30,7 +30,7 @@ st.markdown("""
 BANQUE_SECTEURS = {
     "saguenay_terres_rompues": {
         "nom": "Terres-Rompues (Fjord du Saguenay)",
-        "coords": [48.45520, -71.05210],
+        "coords_centre": [48.45520, -71.05210],
         "zoom": 14,
         "debarcadere": {
             "nom": "Rampe des Terres-Rompues",
@@ -44,7 +44,7 @@ BANQUE_SECTEURS = {
     },
     "anse_saint_jean": {
         "nom": "L'Anse-Saint-Jean (Fjord Profond)",
-        "coords": [48.24650, -70.18920],
+        "coords_centre": [48.24650, -70.18920],
         "zoom": 13,
         "debarcadere": {
             "nom": "Marina de L'Anse-Saint-Jean",
@@ -57,7 +57,7 @@ BANQUE_SECTEURS = {
     },
     "fleuve_levis": {
         "nom": "Québec / Lévis (Fosse Citadelle)",
-        "coords": [46.81250, -71.20520],
+        "coords_centre": [46.81250, -71.20520],
         "zoom": 14,
         "debarcadere": {
             "nom": "Rampe du Parc Maritime de Lévis",
@@ -70,7 +70,7 @@ BANQUE_SECTEURS = {
     },
     "lac_saint_pierre": {
         "nom": "Archipel du Lac Saint-Pierre",
-        "coords": [46.19820, -72.92150],
+        "coords_centre": [46.19820, -72.92150],
         "zoom": 13,
         "debarcadere": {
             "nom": "Mise à l'eau de la Sablière",
@@ -84,7 +84,7 @@ BANQUE_SECTEURS = {
 }
 
 # ==========================================
-# 3. SELECTION DU SECTEUR
+# 3. SÉLECTION DU SECTEUR
 # ==========================================
 secteur_id = st.sidebar.selectbox(
     "📍 Choisir le secteur :",
@@ -97,9 +97,10 @@ secteur = BANQUE_SECTEURS[secteur_id]
 # ==========================================
 # 4. GÉNÉRATION DE LA CARTE PLEINE PAGE
 # ==========================================
-m = folium.Map(location=secteur["coords"], zoom_start=secteur["zoom"], control_scale=True)
+# Initialisation centrée sur la zone sans y ajouter de marqueur générique
+m = folium.Map(location=secteur["coords_centre"], zoom_start=secteur["zoom"], control_scale=True)
 
-# Couches de fond
+# Couches de fonds cartographiques
 folium.TileLayer(
     tiles='https://server.arcgisonline.com/ArcGIS/rest/services/Ocean/World_Ocean_Base/MapServer/tile/{z}/{y}/{x}',
     attr='Esri Ocean Bathymetry',
@@ -129,7 +130,7 @@ folium.TileLayer(
     opacity=0.85
 ).add_to(m)
 
-# Marqueur Débarcadère (Bleu)
+# 1. Uniquement la mise à l'eau (Ancre bleue)
 if "debarcadere" in secteur:
     deb = secteur["debarcadere"]
     folium.Marker(
@@ -139,7 +140,7 @@ if "debarcadere" in secteur:
         icon=folium.Icon(color="blue", icon="anchor", prefix="fa")
     ).add_to(m)
 
-# Marqueurs Structures / Fosses (Rouge)
+# 2. Uniquement les structures de pêche (Poisson rouge)
 for spot in secteur.get("spots_cles", []):
     folium.Marker(
         spot["coords"],
@@ -148,6 +149,7 @@ for spot in secteur.get("spots_cles", []):
         icon=folium.Icon(color="red", icon="fish", prefix="fa")
     ).add_to(m)
 
+# Contrôle des couches
 folium.LayerControl(position="topright").add_to(m)
 
 # Affichage de la carte
