@@ -1,3 +1,4 @@
+        
 import streamlit as st
 import folium
 from streamlit_folium import st_folium
@@ -10,18 +11,40 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# --- STYLE CSS PERSONNALISÉ ---
+# --- STYLE CSS PERSONNALISÉ (MODE CLAIR) ---
 st.markdown("""
     <style>
+    /* Fond principal de l'application */
     .stApp {
-        background-color: #0e1117;
+        background-color: #f8f9fa;
+        color: #1a1a1a;
     }
+    
+    /* Couleur du menu latéral (Sidebar) */
+    [data-testid="stSidebar"] {
+        background-color: #ffffff;
+    }
+
+    /* Adapter les titres et le texte du menu latéral */
+    [data-testid="stSidebar"] h1, 
+    [data-testid="stSidebar"] h2, 
+    [data-testid="stSidebar"] h3, 
+    [data-testid="stSidebar"] label {
+        color: #1a1a1a !important;
+    }
+
+    /* Cartes métriques avec fond blanc et ombrage léger */
     .metric-card {
-        background-color: #1e222d;
+        background-color: #ffffff;
+        color: #1a1a1a;
         border-radius: 10px;
         padding: 15px;
-        border-left: 5px solid #00d2ff;
+        border-left: 5px solid #0083b0;
+        box-shadow: 0 2px 6px rgba(0,0,0,0.08);
         margin-bottom: 10px;
+    }
+    .metric-card h4, .metric-card p {
+        color: #1a1a1a !important;
     }
     </style>
 """, unsafe_allow_html=True)
@@ -118,7 +141,7 @@ with tab_carte:
     def generer_carte(lat, lon, zoom):
         m = folium.Map(location=[lat, lon], zoom_start=zoom, control_scale=True, tiles=None)
 
-        # 1. Relief des Fonds Marins & Bathymétrie (Esri Ocean Base) - Fonctionne partout au Québec
+        # 1. Relief des Fonds Marins & Bathymétrie (Esri Ocean Base)
         folium.TileLayer(
             tiles='https://server.arcgisonline.com/ArcGIS/rest/services/Ocean/World_Ocean_Base/MapServer/tile/{z}/{y}/{x}',
             attr='Esri, GEBCO, NOAA',
@@ -127,7 +150,7 @@ with tab_carte:
             max_zoom=16
         ).add_to(m)
 
-        # 2. Carte Topographique & Hydrographique Canadienne (Ressources Naturelles Canada / OpenTopo)
+        # 2. Carte Topographique & Hydrographique Canadienne
         folium.TileLayer(
             tiles='https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png',
             attr='OpenTopoMap (Données hydrographiques & courbes de niveau)',
@@ -136,7 +159,7 @@ with tab_carte:
             max_zoom=17
         ).add_to(m)
 
-        # 3. Vue Satellite HD (Pour visualiser les battures et berges)
+        # 3. Vue Satellite HD
         folium.TileLayer(
             tiles='https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
             attr='Esri Satellite',
