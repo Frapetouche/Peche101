@@ -34,6 +34,37 @@ with col_droite:
     <div style="background-color: #1e293b; padding: 40px; border-radius: 10px; border: 1px solid #334155; text-align: center; height: 550px; display: flex; flex-direction: column; justify-content: center; align-items: center;">
         <h3 style="color: #f1f5f9; margin-bottom: 20px;">Cartes Isobathes HD</h3>
         <p style="color: #94a3b8; margin-bottom: 30px;">Visualisez les profondeurs et structures sous-marines en simultané.</p>
-        <a href="{url_garmin}" target="_blank" style="background-color: #004b87; color: white; padding: 15px 25px; border-radius: 8px; text-decoration: none; font-weight: bold;">🗺️ Ouvrir Garmin / Navionics</a>
+        <a id="garmin-link" href="{url_garmin}" target="_blank" style="background-color: #004b87; color: white; padding: 15px 25px; border-radius: 8px; text-decoration: none; font-weight: bold;">🗺️ Ouvrir Garmin / Navionics</a>
+        <p id="garmin-status" style="color: #64748b; font-size: 0.85rem; margin-top: 15px;">📍 Détection de votre position…</p>
     </div>
+    <script>
+    function updateGarminLink(lat, lon) {{
+        var link = document.getElementById('garmin-link');
+        var status = document.getElementById('garmin-status');
+        if (lat && lon) {{
+            link.href = "https://webapp.navionics.com/?lang=en#boating@13@" + lat + "," + lon;
+            status.textContent = "📍 Position détectée : " + lat.toFixed(5) + ", " + lon.toFixed(5);
+            status.style.color = "#22c55e";
+        }}
+    }}
+    if (navigator.geolocation) {{
+        navigator.geolocation.getCurrentPosition(
+            function(pos) {{
+                updateGarminLink(pos.coords.latitude, pos.coords.longitude);
+            }},
+            function(err) {{
+                var status = document.getElementById('garmin-status');
+                if (err.code === 1) {{
+                    status.textContent = "⚠️ Autorisez la localisation pour ouvrir à votre position";
+                }} else {{
+                    status.textContent = "📍 Position par défaut (cassure principale)";
+                }}
+                status.style.color = "#f59e0b";
+            }},
+            {{enableHighAccuracy: true, timeout: 10000}}
+        );
+    }} else {{
+        document.getElementById('garmin-status').textContent = "📍 Position par défaut (cassure principale)";
+    }}
+    </script>
     """, unsafe_allow_html=True)
