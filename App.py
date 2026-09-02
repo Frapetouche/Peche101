@@ -1,6 +1,7 @@
 import streamlit as st
 import folium
 from streamlit_folium import st_folium
+import streamlit.components.v1 as components
 
 st.set_page_config(page_title="Guide Pêche QC", layout="wide", initial_sidebar_state="collapsed")
 
@@ -30,11 +31,11 @@ with col_gauche:
 
 with col_droite:
     st.markdown("### 🧭 Bathymétrie Garmin / Navionics")
-    st.markdown(f"""
-    <div style="background-color: #1e293b; padding: 40px; border-radius: 10px; border: 1px solid #334155; text-align: center; height: 550px; display: flex; flex-direction: column; justify-content: center; align-items: center;">
+    components.html(f"""
+    <div style="background-color: #1e293b; padding: 40px; border-radius: 10px; border: 1px solid #334155; text-align: center; min-height: 470px; display: flex; flex-direction: column; justify-content: center; align-items: center; font-family: sans-serif;">
         <h3 style="color: #f1f5f9; margin-bottom: 20px;">Cartes Isobathes HD</h3>
         <p style="color: #94a3b8; margin-bottom: 30px;">Visualisez les profondeurs et structures sous-marines en simultané.</p>
-        <a id="garmin-link" href="{url_garmin}" target="_blank" style="background-color: #004b87; color: white; padding: 15px 25px; border-radius: 8px; text-decoration: none; font-weight: bold;">🗺️ Ouvrir Garmin / Navionics</a>
+        <a id="garmin-link" href="{url_garmin}" target="_blank" style="background-color: #004b87; color: white; padding: 15px 25px; border-radius: 8px; text-decoration: none; font-weight: bold; font-size: 1rem;">🗺️ Ouvrir Garmin / Navionics</a>
         <p id="garmin-status" style="color: #64748b; font-size: 0.85rem; margin-top: 15px;">📍 Détection de votre position…</p>
     </div>
     <script>
@@ -43,7 +44,7 @@ with col_droite:
         var status = document.getElementById('garmin-status');
         if (lat && lon) {{
             link.href = "https://webapp.navionics.com/?lang=en#boating@13@" + lat + "," + lon;
-            status.textContent = "📍 Position détectée : " + lat.toFixed(5) + ", " + lon.toFixed(5);
+            status.textContent = "📍 Position : " + lat.toFixed(5) + ", " + lon.toFixed(5);
             status.style.color = "#22c55e";
         }}
     }}
@@ -67,4 +68,4 @@ with col_droite:
         document.getElementById('garmin-status').textContent = "📍 Position par défaut (cassure principale)";
     }}
     </script>
-    """, unsafe_allow_html=True)
+    """, height=550)
