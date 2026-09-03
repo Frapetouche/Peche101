@@ -1,3 +1,4 @@
+import json
 import streamlit as st
 import folium
 from streamlit_folium import st_folium
@@ -7,6 +8,19 @@ st.set_page_config(page_title="Guide Pêche QC", layout="wide", initial_sidebar_
 
 LAT, LON, ZOOM = 48.45520, -71.05210, 13
 url_garmin = f"https://webapp.navionics.com/?lang=en#boating@13@{LAT},{LON}"
+
+# --- Charger la carte bathymétrique géoréférencée du grand lac Saint-Jean (Alma) ---
+with open("data/lac_saint_jean_overlay.b64", "r") as f:
+    _overlay_b64 = f.read()
+
+# Bounds calculés par géoréférencement des grilles de la carte 1961 (CEHQ)
+SJ_BOUNDS = {
+    "north": 48.79167,
+    "south": 48.41236,
+    "west": -72.60181,
+    "east": -71.54024,
+}
+SJ_CENTER_LAT, SJ_CENTER_LON = 48.602, -72.071
 
 col_gauche, col_droite = st.columns(2)
 
@@ -69,3 +83,38 @@ with col_droite:
     }}
     </script>
     """, height=550)
+
+# ─── Section Bathymétrie Grand Lac Saint-Jean (Alma) ───
+st.markdown("---")
+st.markdown("## 📐 Bathymétrie — Grand Lac Saint-Jean (Alma)")
+
+st.markdown("""
+Carte bathymétrique géoréférencée superposée à l'imagerie satellite.
+Les contours indiquent les profondeurs de l'eau. Profondeur maximale: **63.1m**.
+""")
+
+m_bathy = folium.Map(location=[SJ_CENTER_LAT, SJ_CENTER_LON], zoom_start=10, control_scale=True, tiles=None)
+
+folium.TileLayer(
+    tiles='https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+    attr='Esri Satellite', name='🛰️ Satellite', overlay=False
+).add_to(m_bathy)
+
+folium.TileLayer(
+    tiles='https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png',
+    attr='OpenTopoMap', name='⛰️ Topo', overlay=False
+).add_to(m_bathy)
+
+# Superposer la carte bathymétrique géoréférencée
+overlay_url = f"data:image/jpeg;base64,{_overlay_b64}"
+folium.raster_layers.ImageOverlay(
+    image=overlay_url,
+    bounds=[[SJ_BOUNDS["south"], SJ_BOUNDS["west"]], [SJ_BOUNDS["north"], SJ_BOUNDS["east"]]],
+    name="📐 Carte bathymétrique 1961",
+    opacity=0.7,
+).add_to(m_bathy)
+
+folium.LayerControl(position="topright", collapsed=False).add_to(m_bathy)
+st_folium(m_bathy, width="100%", height=600, returned_objects=[], key="map_bathy")
+
+st.caption("Source: Carte bathymétrique historique 00602 (1961, CEHQ / MELCCFP) — Licence ouverte du gouvernement du Québec")
