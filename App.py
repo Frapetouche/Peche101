@@ -30,11 +30,5 @@ with col_gauche:
 
 with col_droite:
     st.markdown("### 🧭 Bathymétrie Garmin / Navionics")
-    st.markdown(f"""
-    <div style="background-color: #1e293b; padding: 40px; border-radius: 10px; border: 1px solid #334155; text-align: center; height: 550px; display: flex; flex-direction: column; justify-content: center; align-items: center;">
-        <h3 style="color: #f1f5f9; margin-bottom: 20px;">Cartes Isobathes HD</h3>
-        <p style="color: #94a3b8; margin-bottom: 30px;">Visualisez les profondeurs et structures sous-marines en simultané.</p>
-        <a href="{url_garmin}" target="_blank" style="background-color: #004b87; color: white; padding: 15px 25px; border-radius: 8px; text-decoration: none; font-weight: bold;">🗺️ Ouvrir Garmin / Navionics</a>
-    </div>
-    """, unsafe_allow_html=True)
-
+    st.markdown("Cartes Isobathes HD — visualisez les profondeurs et structures sous-marines.")
+    st.markdown(f"[🗺️ Ouvrir Garmin / Navionics]({url_garmin})")
