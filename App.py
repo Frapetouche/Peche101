@@ -45,25 +45,9 @@ m_alma = folium.Map(
     location=[LAT, LON],
     zoom_start=ZOOM,
     control_scale=True,
-    tiles=None
-)
-
-# Couche satellite
-folium.TileLayer(
-    tiles='https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
-    attr='Esri Satellite',
-    name='🛰️ Satellite HD',
-    overlay=False
-).add_to(m_alma)
-
-# Couche Garmin 1961 originale (overlay)
-folium.TileLayer(
     tiles='https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}',
-    attr='Garmin 1961',
-    name='🗺️ Garmin 1961 - Bathymétrie',
-    overlay=True,
-    opacity=0.7
-).add_to(m_alma)
+    attr='Garmin 1961 - Courbes de profondeur'
+)
 
 # Marqueur principal
 folium.Marker(
@@ -72,7 +56,6 @@ folium.Marker(
     icon=folium.Icon(color="blue", icon="water", prefix="fa")
 ).add_to(m_alma)
 
-folium.LayerControl(position="topright").add_to(m_alma)
 st_folium(m_alma, width="100%", height=550, returned_objects=[], key="map_alma")
 
 st.markdown("**Profondeur max : 63.1m** | Données : CEHQ 1961 - Entrée 00602")
