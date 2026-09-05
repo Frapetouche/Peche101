@@ -9,9 +9,11 @@ st.set_page_config(page_title="Guide Pêche QC", layout="wide", initial_sidebar_
 LAT, LON, ZOOM = 48.45520, -71.05210, 13
 url_garmin = f"https://webapp.navionics.com/?lang=en#boating@13@{LAT},{LON}"
 
-# --- Charger la carte bathymétrique géoréférencée du grand lac Saint-Jean (Alma) ---
+# --- Charger les cartes bathymétriques géoréférencées du grand lac Saint-Jean ---
 with open("data/lac_saint_jean_overlay.b64", "r") as f:
     _overlay_b64 = f.read()
+with open("data/lac_saint_jean_garmin.b64", "r") as f:
+    _garmin_b64 = f.read()
 
 # Bounds calculés par géoréférencement des grilles de la carte 1961 (CEHQ)
 SJ_BOUNDS = {
@@ -95,7 +97,7 @@ LACS = {
         "zoom": 10,
         "max_depth": 63.1,
         "source": "Carte bathymétrique historique 00602 (1961, CEHQ / MELCCFP)",
-        "type": "raster",
+        "type": "raster_garmin",
     },
     "Lac Kénogami (Saguenay)": {
         "center": [48.348, -71.383],
@@ -107,15 +109,12 @@ LACS = {
         "type": "vector",
         "geojson": "data/kenogami_isobathes.geojson",
     },
-    "Réservoir Lac Lamothe (Mauricie)": {
-        "center": [47.435, -71.763],
-        "zoom": 13,
-        "max_depth": 10.35,
-        "fosse_lat": 47.434803,
-        "fosse_lon": -71.762372,
-        "source": "GBLQ 07499 (SEPAQ)",
-        "type": "vector",
-        "geojson": "data/lamothe_isobathes.geojson",
+    "Réservoir La Mothe (Saint-Ambroise, Saguenay)": {
+        "center": [48.784, -71.154],
+        "zoom": 11,
+        "max_depth": None,
+        "source": "Réservoir Hydro-Québec (rivière Shipshaw) — données bathymétriques non disponibles dans la GBLQ",
+        "type": "satellite",
     },
 }
 
@@ -141,7 +140,10 @@ def depth_color(depth):
 lac_nom = st.selectbox("Choisir un lac", list(LACS.keys()), index=0)
 lac = LACS[lac_nom]
 
-st.markdown(f"**Profondeur maximale: {lac['max_depth']}m** — {lac['source']}")
+if lac["max_depth"]:
+    st.markdown(f"**Profondeur maximale: {lac['max_depth']}m** — {lac['source']}")
+else:
+    st.markdown(f"**{lac['source']}**")
 
 m_bathy = folium.Map(location=lac["center"], zoom_start=lac["zoom"], control_scale=True, tiles=None)
 
@@ -155,14 +157,29 @@ folium.TileLayer(
     attr='OpenTopoMap', name='⛰️ Topo', overlay=False
 ).add_to(m_bathy)
 
-if lac["type"] == "raster":
-    # Grand Lac Saint-Jean: superposition raster de la carte 1961
+if lac["type"] == "raster_garmin":
+    # Grand Lac Saint-Jean: superposition de la carte 1961 colorisée style Garmin
+    garmin_url = f"data:image/jpeg;base64,{_garmin_b64}"
+    folium.raster_layers.ImageOverlay(
+        image=garmin_url,
+        bounds=[[SJ_BOUNDS["south"], SJ_BOUNDS["west"]], [SJ_BOUNDS["north"], SJ_BOUNDS["east"]]],
+        name="📐 Carte bathymétrique 1961 (couleur Garmin)",
+        opacity=0.85,
+    ).add_to(m_bathy)
+    # Option: couche originale N&B aussi disponible
     overlay_url = f"data:image/jpeg;base64,{_overlay_b64}"
     folium.raster_layers.ImageOverlay(
         image=overlay_url,
         bounds=[[SJ_BOUNDS["south"], SJ_BOUNDS["west"]], [SJ_BOUNDS["north"], SJ_BOUNDS["east"]]],
-        name="📐 Carte bathymétrique 1961",
-        opacity=0.7,
+        name="📐 Carte bathymétrique 1961 (N&B original)",
+        opacity=0,
+    ).add_to(m_bathy)
+elif lac["type"] == "satellite":
+    # Lacs sans données bathymétriques: vue satellite uniquement
+    folium.Marker(
+        location=lac["center"],
+        tooltip=lac_nom,
+        icon=folium.Icon(color="blue", icon="info-sign", prefix="fa"),
     ).add_to(m_bathy)
 else:
     # Lacs vectoriels: isobathes colorées depuis GeoJSON
