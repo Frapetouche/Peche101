@@ -3,6 +3,8 @@ import folium
 from streamlit_folium import st_folium
 import requests
 import json
+from folium.plugins import HeatMap
+import numpy as np
 
 st.set_page_config(page_title="Guide Pêche QC", layout="wide", initial_sidebar_state="collapsed")
 
@@ -41,66 +43,100 @@ with col_droite:
     """, unsafe_allow_html=True)
 
 # 3ème carte : Grand lac Saint-Jean d'Alma avec bathymétrie GBLQ
-st.markdown("### 🗺️ Grand lac Saint-Jean d'Alma - Bathymétrie (GBLQ)")
+st.markdown("### 🗺️ Grand lac Saint-Jean d'Alma - Bathymétrie Sonar (GBLQ)")
 
 m_alma = folium.Map(
     location=[LAT, LON],
     zoom_start=ZOOM,
     control_scale=True,
-    tiles='https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
-    attr='Esri Satellite'
+    tiles=None
 )
+
+# Couche satellite de base
+folium.TileLayer(
+    tiles='https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+    attr='Esri Satellite',
+    name='🛰️ Satellite',
+    overlay=False
+).add_to(m_alma)
 
 # Charger les données bathymétriques du lac Saint-Jean depuis GBLQ
 try:
-    # URL du répertoire GBLQ - chercher le fichier du lac Saint-Jean
-    gblq_index_url = "https://stqc380donopppdtce01.blob.core.windows.net/donnees-ouvertes/Bathymetrie/Lacs/DQ/Index_bathymetries_json.zip"
-    
-    # URL directe GeoJSON pour lac Saint-Jean (à adapter selon la structure GBLQ)
+    # URL directe GeoJSON pour lac Saint-Jean depuis la GBLQ
     geojson_url = "https://stqc380donopppdtce01.blob.core.windows.net/donnees-ouvertes/Bathymetrie/Lacs/DQ/LacSaintJean.geojson"
     
     response = requests.get(geojson_url, timeout=5)
     if response.status_code == 200:
         geojson_data = response.json()
         
-        # Fonction pour colorer les isobathes selon la profondeur
-        def get_color_by_depth(depth):
+        # Fonction pour obtenir la couleur selon la profondeur (style sonar)
+        def get_sonar_color(depth):
             try:
                 depth_val = float(depth)
-                if depth_val < 2:
-                    return '#0099ff'  # Bleu clair (peu profond)
+                if depth_val < 1:
+                    return '#ffff00'  # Jaune (très peu profond)
+                elif depth_val < 2:
+                    return '#00ff00'  # Vert (peu profond)
+                elif depth_val < 3:
+                    return '#00ffff'  # Cyan (modéré)
                 elif depth_val < 5:
-                    return '#0055ff'  # Bleu moyen
+                    return '#0066ff'  # Bleu ciel (profond)
                 elif depth_val < 8:
-                    return '#003377'  # Bleu foncé
+                    return '#0000ff'  # Bleu (très profond)
                 else:
-                    return '#001144'  # Bleu très foncé (très profond)
+                    return '#000088'  # Bleu très foncé (fosse)
             except:
-                return '#0055ff'
+                return '#0066ff'
         
-        # Ajouter les isobathes au GeoJSON
+        # Ajouter les isobathes stylisées avec folium.GeoJson
+        def style_function(feature):
+            depth = feature.get('properties', {}).get('PROFONDEUR', feature.get('properties', {}).get('profondeur', 0))
+            color = get_sonar_color(depth)
+            return {
+                'color': color,
+                'weight': 2,
+                'opacity': 0.9,
+                'fillOpacity': 0.3
+            }
+        
+        def popup_function(feature):
+            depth = feature.get('properties', {}).get('PROFONDEUR', feature.get('properties', {}).get('profondeur', 0))
+            return folium.Popup(f"<b>Profondeur: {depth}m</b>", max_width=250)
+        
+        # Ajouter le GeoJSON stylisé
+        folium.GeoJson(
+            geojson_data,
+            style_function=style_function,
+            name='🌊 Isobathes (GBLQ)',
+            overlay=True,
+            popup=folium.GeoJsonPopup(fields=['PROFONDEUR', 'profondeur'], aliases=['Profondeur', 'Profondeur'])
+        ).add_to(m_alma)
+        
+        # Créer une heatmap à partir des points de profondeur (style sonar)
+        heat_data = []
         for feature in geojson_data.get('features', []):
+            geom = feature.get('geometry', {})
             props = feature.get('properties', {})
-            depth = props.get('PROFONDEUR', props.get('profondeur', 0))
-            color = get_color_by_depth(depth)
+            depth = float(props.get('PROFONDEUR', props.get('profondeur', 0)))
             
-            if feature.get('geometry', {}).get('type') == 'LineString':
-                folium.PolyLine(
-                    locations=[(coord[1], coord[0]) for coord in feature['geometry']['coordinates']],
-                    color=color,
-                    weight=2,
-                    opacity=0.8,
-                    popup=f"Profondeur: {depth}m"
-                ).add_to(m_alma)
-            elif feature.get('geometry', {}).get('type') == 'Point':
-                folium.CircleMarker(
-                    location=[feature['geometry']['coordinates'][1], feature['geometry']['coordinates'][0]],
-                    radius=5,
-                    color=color,
-                    fill=True,
-                    fillOpacity=0.8,
-                    popup=f"Fosse: {depth}m"
-                ).add_to(m_alma)
+            if geom.get('type') == 'Point':
+                coords = geom.get('coordinates', [])
+                if len(coords) >= 2:
+                    # Intensité de la heatmap basée sur la profondeur (normalisée)
+                    intensity = min(depth / 15, 1.0)  # Normaliser sur 15m max
+                    heat_data.append([coords[1], coords[0], intensity])
+        
+        if heat_data:
+            HeatMap(
+                heat_data,
+                name='🔥 Heatmap Profondeur',
+                overlay=True,
+                radius=25,
+                blur=15,
+                max_zoom=1,
+                gradient={0.0: '#ffff00', 0.25: '#00ff00', 0.5: '#00ffff', 0.75: '#0066ff', 1.0: '#000088'}
+            ).add_to(m_alma)
+    
 except Exception as e:
     st.warning(f"⚠️ Données bathymétriques non disponibles: {str(e)}")
 
@@ -115,6 +151,6 @@ folium.LayerControl(position="topright").add_to(m_alma)
 st_folium(m_alma, width="100%", height=550, returned_objects=[], key="map_alma")
 
 st.markdown("""
-**Bathymétrie GBLQ** | Données : Géobase des bathymétries de lacs du Québec  
-🔵 Bleu clair (< 2m) | 🔵 Bleu moyen (2-5m) | 🔵 Bleu foncé (5-8m) | 🔵 Bleu très foncé (> 8m)
+**Bathymétrie GBLQ - Style Sonar** | Données : Géobase des bathymétries de lacs du Québec  
+🟡 Jaune (< 1m) | 🟢 Vert (1-2m) | 🔵 Cyan (2-3m) | 🔵 Bleu (3-5m) | 🔵 Bleu foncé (5-8m) | ⬛ Fosse (> 8m)
 """)
