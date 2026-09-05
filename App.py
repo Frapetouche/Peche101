@@ -2,7 +2,7 @@ import streamlit as st
 import folium
 from streamlit_folium import st_folium
 
-st.set_page_config(page_title="Guide Pêche QC", layout="wide", initial_sidebar_state="collapsed")
+st.set_page_config(page_title="Guide Pêche QC", page_icon="app_icon.svg", layout="wide", initial_sidebar_state="collapsed")
 
 LAT, LON, ZOOM = 48.45520, -71.05210, 13
 url_garmin = f"https://webapp.navionics.com/?lang=en#boating@13@{LAT},{LON}"
