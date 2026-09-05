@@ -84,16 +84,66 @@ with col_droite:
     </script>
     """, height=550)
 
-# ─── Section Bathymétrie Grand Lac Saint-Jean (Alma) ───
+# ─── Section Bathymétrie multi-lacs ───
 st.markdown("---")
-st.markdown("## 📐 Bathymétrie — Grand Lac Saint-Jean (Alma)")
+st.markdown("## 📐 Bathymétrie — Lacs du Québec")
 
-st.markdown("""
-Carte bathymétrique géoréférencée superposée à l'imagerie satellite.
-Les contours indiquent les profondeurs de l'eau. Profondeur maximale: **63.1m**.
-""")
+# Catalogue des lacs disponibles
+LACS = {
+    "Grand Lac Saint-Jean (Alma)": {
+        "center": [48.602, -72.071],
+        "zoom": 10,
+        "max_depth": 63.1,
+        "source": "Carte bathymétrique historique 00602 (1961, CEHQ / MELCCFP)",
+        "type": "raster",
+    },
+    "Lac Kénogami (Saguenay)": {
+        "center": [48.348, -71.383],
+        "zoom": 12,
+        "max_depth": 103.18,
+        "fosse_lat": 48.308438,
+        "fosse_lon": -71.323507,
+        "source": "GBLQ 00281 (1969, Ministère des Richesses naturelles)",
+        "type": "vector",
+        "geojson": "data/kenogami_isobathes.geojson",
+    },
+    "Réservoir Lac Lamothe (Mauricie)": {
+        "center": [47.435, -71.763],
+        "zoom": 13,
+        "max_depth": 10.35,
+        "fosse_lat": 47.434803,
+        "fosse_lon": -71.762372,
+        "source": "GBLQ 07499 (SEPAQ)",
+        "type": "vector",
+        "geojson": "data/lamothe_isobathes.geojson",
+    },
+}
 
-m_bathy = folium.Map(location=[SJ_CENTER_LAT, SJ_CENTER_LON], zoom_start=10, control_scale=True, tiles=None)
+def depth_color(depth):
+    """Couleur des isobathes selon la profondeur (gradient bleu)."""
+    if depth < 3:
+        return "#67e8f9"   # cyan clair (peu profond)
+    elif depth < 6:
+        return "#22d3ee"   # cyan
+    elif depth < 10:
+        return "#0ea5e9"   # bleu ciel
+    elif depth < 20:
+        return "#2563eb"   # bleu
+    elif depth < 40:
+        return "#1e40af"   # bleu foncé
+    elif depth < 60:
+        return "#1e3a8a"   # bleu marine
+    elif depth < 80:
+        return "#172554"   # bleu nuit
+    else:
+        return "#0f172a"   # presque noir
+
+lac_nom = st.selectbox("Choisir un lac", list(LACS.keys()), index=0)
+lac = LACS[lac_nom]
+
+st.markdown(f"**Profondeur maximale: {lac['max_depth']}m** — {lac['source']}")
+
+m_bathy = folium.Map(location=lac["center"], zoom_start=lac["zoom"], control_scale=True, tiles=None)
 
 folium.TileLayer(
     tiles='https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
@@ -105,16 +155,54 @@ folium.TileLayer(
     attr='OpenTopoMap', name='⛰️ Topo', overlay=False
 ).add_to(m_bathy)
 
-# Superposer la carte bathymétrique géoréférencée
-overlay_url = f"data:image/jpeg;base64,{_overlay_b64}"
-folium.raster_layers.ImageOverlay(
-    image=overlay_url,
-    bounds=[[SJ_BOUNDS["south"], SJ_BOUNDS["west"]], [SJ_BOUNDS["north"], SJ_BOUNDS["east"]]],
-    name="📐 Carte bathymétrique 1961",
-    opacity=0.7,
-).add_to(m_bathy)
+if lac["type"] == "raster":
+    # Grand Lac Saint-Jean: superposition raster de la carte 1961
+    overlay_url = f"data:image/jpeg;base64,{_overlay_b64}"
+    folium.raster_layers.ImageOverlay(
+        image=overlay_url,
+        bounds=[[SJ_BOUNDS["south"], SJ_BOUNDS["west"]], [SJ_BOUNDS["north"], SJ_BOUNDS["east"]]],
+        name="📐 Carte bathymétrique 1961",
+        opacity=0.7,
+    ).add_to(m_bathy)
+else:
+    # Lacs vectoriels: isobathes colorées depuis GeoJSON
+    with open(lac["geojson"], "r") as f:
+        isobathes = json.load(f)
+
+    for feature in isobathes["features"]:
+        depth = feature["properties"]["PROFONDEUR_M"]
+        color = depth_color(depth)
+        geom = feature["geometry"]
+
+        if geom["type"] == "MultiLineString":
+            for line in geom["coordinates"]:
+                folium.PolyLine(
+                    locations=[(pt[1], pt[0]) for pt in line],
+                    color=color,
+                    weight=2,
+                    opacity=0.85,
+                    tooltip=f"{depth}m",
+                    name=f"Isobathe {depth}m",
+                ).add_to(m_bathy)
+        elif geom["type"] == "LineString":
+            folium.PolyLine(
+                locations=[(pt[1], pt[0]) for pt in geom["coordinates"]],
+                color=color,
+                weight=2,
+                opacity=0.85,
+                tooltip=f"{depth}m",
+                name=f"Isobathe {depth}m",
+            ).add_to(m_bathy)
+
+    # Marquer la fosse (point le plus profond)
+    if "fosse_lat" in lac:
+        folium.Marker(
+            location=[lac["fosse_lat"], lac["fosse_lon"]],
+            tooltip=f"Fosse: {lac['max_depth']}m",
+            icon=folium.Icon(color="red", icon="info-sign", prefix="fa"),
+        ).add_to(m_bathy)
 
 folium.LayerControl(position="topright", collapsed=False).add_to(m_bathy)
-st_folium(m_bathy, width="100%", height=600, returned_objects=[], key="map_bathy")
+st_folium(m_bathy, width="100%", height=600, returned_objects=[], key=f"map_bathy_{lac_nom}")
 
-st.caption("Source: Carte bathymétrique historique 00602 (1961, CEHQ / MELCCFP) — Licence ouverte du gouvernement du Québec")
+st.caption(f"Source: {lac['source']} — Licence ouverte du gouvernement du Québec (CC-BY 4.0)")
