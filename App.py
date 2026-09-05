@@ -1,6 +1,8 @@
 import streamlit as st
 import folium
 from streamlit_folium import st_folium
+import requests
+import json
 
 st.set_page_config(page_title="Guide Pêche QC", layout="wide", initial_sidebar_state="collapsed")
 
@@ -38,16 +40,69 @@ with col_droite:
     </div>
     """, unsafe_allow_html=True)
 
-# 3ème carte : Grand lac Saint-Jean d'Alma avec bathymétrie 1961
-st.markdown("### 🗺️ Grand lac Saint-Jean d'Alma - Bathymétrie 1961")
+# 3ème carte : Grand lac Saint-Jean d'Alma avec bathymétrie GBLQ
+st.markdown("### 🗺️ Grand lac Saint-Jean d'Alma - Bathymétrie (GBLQ)")
 
 m_alma = folium.Map(
     location=[LAT, LON],
     zoom_start=ZOOM,
     control_scale=True,
-    tiles='https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}',
-    attr='Garmin 1961 - Courbes de profondeur'
+    tiles='https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+    attr='Esri Satellite'
 )
+
+# Charger les données bathymétriques du lac Saint-Jean depuis GBLQ
+try:
+    # URL du répertoire GBLQ - chercher le fichier du lac Saint-Jean
+    gblq_index_url = "https://stqc380donopppdtce01.blob.core.windows.net/donnees-ouvertes/Bathymetrie/Lacs/DQ/Index_bathymetries_json.zip"
+    
+    # URL directe GeoJSON pour lac Saint-Jean (à adapter selon la structure GBLQ)
+    geojson_url = "https://stqc380donopppdtce01.blob.core.windows.net/donnees-ouvertes/Bathymetrie/Lacs/DQ/LacSaintJean.geojson"
+    
+    response = requests.get(geojson_url, timeout=5)
+    if response.status_code == 200:
+        geojson_data = response.json()
+        
+        # Fonction pour colorer les isobathes selon la profondeur
+        def get_color_by_depth(depth):
+            try:
+                depth_val = float(depth)
+                if depth_val < 2:
+                    return '#0099ff'  # Bleu clair (peu profond)
+                elif depth_val < 5:
+                    return '#0055ff'  # Bleu moyen
+                elif depth_val < 8:
+                    return '#003377'  # Bleu foncé
+                else:
+                    return '#001144'  # Bleu très foncé (très profond)
+            except:
+                return '#0055ff'
+        
+        # Ajouter les isobathes au GeoJSON
+        for feature in geojson_data.get('features', []):
+            props = feature.get('properties', {})
+            depth = props.get('PROFONDEUR', props.get('profondeur', 0))
+            color = get_color_by_depth(depth)
+            
+            if feature.get('geometry', {}).get('type') == 'LineString':
+                folium.PolyLine(
+                    locations=[(coord[1], coord[0]) for coord in feature['geometry']['coordinates']],
+                    color=color,
+                    weight=2,
+                    opacity=0.8,
+                    popup=f"Profondeur: {depth}m"
+                ).add_to(m_alma)
+            elif feature.get('geometry', {}).get('type') == 'Point':
+                folium.CircleMarker(
+                    location=[feature['geometry']['coordinates'][1], feature['geometry']['coordinates'][0]],
+                    radius=5,
+                    color=color,
+                    fill=True,
+                    fillOpacity=0.8,
+                    popup=f"Fosse: {depth}m"
+                ).add_to(m_alma)
+except Exception as e:
+    st.warning(f"⚠️ Données bathymétriques non disponibles: {str(e)}")
 
 # Marqueur principal
 folium.Marker(
@@ -56,6 +111,10 @@ folium.Marker(
     icon=folium.Icon(color="blue", icon="water", prefix="fa")
 ).add_to(m_alma)
 
+folium.LayerControl(position="topright").add_to(m_alma)
 st_folium(m_alma, width="100%", height=550, returned_objects=[], key="map_alma")
 
-st.markdown("**Profondeur max : 63.1m** | Données : CEHQ 1961 - Entrée 00602")
+st.markdown("""
+**Bathymétrie GBLQ** | Données : Géobase des bathymétries de lacs du Québec  
+🔵 Bleu clair (< 2m) | 🔵 Bleu moyen (2-5m) | 🔵 Bleu foncé (5-8m) | 🔵 Bleu très foncé (> 8m)
+""")
